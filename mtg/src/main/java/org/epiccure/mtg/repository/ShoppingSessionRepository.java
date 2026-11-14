@@ -9,11 +9,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface ShoppingSessionRepository extends JpaRepository<ShoppingSession, Long> {
 
     Optional<ShoppingSession> findBySessionToken(String sessionToken);
+
+    /** The client's open visit (WAITING or ACTIVE), so a second kiosk check-in returns the same session. */
+    Optional<ShoppingSession> findFirstByClientIdAndStatusInOrderByCreatedAtDesc(Long clientId, Collection<String> statuses);
 
     /** Active_Floor_Shoppers: ACTIVE sessions with a heartbeat newer than the cutoff (now - 45 min). */
     @Query("select count(s) from ShoppingSession s where s.status = 'ACTIVE' and s.lastActivityAt > :cutoff")
@@ -31,4 +35,8 @@ public interface ShoppingSessionRepository extends JpaRepository<ShoppingSession
 
     @Query("select coalesce(max(s.queuePosition), 0) from ShoppingSession s where s.status = 'WAITING'")
     int maxQueuePosition();
+
+    long countByStatus(String status);
+
+    long countByStatusAndQueuePositionLessThan(String status, Integer queuePosition);
 }
