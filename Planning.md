@@ -10,12 +10,6 @@
 
 ## Evidence at a Glance
 
-> Add screenshots to `docs/images/` and update the file names below.
-
-**Figure 1: Demo barcode sheet** (printable; scan from the Scan tab on a phone)
-
-![Demo barcodes](docs/images/demo-barcodes.png)
-
 | Item | SKU | Eleanor | Marcus | Sarah | David | Aisha |
 |---|---|:-:|:-:|:-:|:-:|:-:|
 | Raw Unsalted Almonds | 071234567855 | 🟢 | 🔴 | 🟢 | 🟢 | 🟡 |
@@ -32,20 +26,6 @@
 | Organic Eggs (Large) | 071234567886 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
 
 🟢 Good pick · 🟡 Limit · 🔴 Put it back
-
-*Tip: raise screen brightness and hold the phone 15–25 cm from the screen. Camera scanning needs Chrome on Android; on iPhone, type the number under the barcode.*
-
-**Figure 2: Check-in, scan, and hard-stop** (client CLI-1002 checks in, scans almonds → RED, checkout validation → `HARD_STOP`)
-
-![Check-in and hard stop](docs/images/checkin-hardstop.png)
-
-**Figure 3: AI harness results**
-
-![AI harness](docs/images/ai-harness.png)
-
-**Figure 4: Running application**
-
-![App running](docs/images/app-running.png)
 
 ---
 
