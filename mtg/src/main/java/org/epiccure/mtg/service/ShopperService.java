@@ -73,12 +73,23 @@ public class ShopperService {
     public ScanView scan(String token, ScanRequest req) {
         ShoppingSession s = sessionService.requireActive(token);
         if (req == null || req.code() == null || req.code().isBlank()) throw ApiException.badRequest("CODE_REQUIRED", "Scan a barcode or type a SKU.");
-        Product p = findProduct(req.code());
+        return addProduct(s, findProduct(req.code()), req.addToCart() == null || req.addToCart());
+    }
+
+    /** "+" buttons in the cart and on recipes: add one unit by product id (same flag/cap rules as a scan). */
+    @Transactional
+    public ScanView addById(String token, Long productId) {
+        ShoppingSession s = sessionService.requireActive(token);
+        Product p = products.findById(productId)
+                .orElseThrow(() -> ApiException.notFound("PRODUCT_NOT_FOUND", "We don't recognise that item."));
+        return addProduct(s, p, true);
+    }
+
+    private ScanView addProduct(ShoppingSession s, Product p, boolean add) {
         FlagResult f = engine.evaluate(p, sessionService.ruleset(s));
         sessionService.touch(s);
 
         int cap = yellowCap(s);
-        boolean add = req.addToCart() == null || req.addToCart();
         boolean added = false, capReached = false;
         String message = switch (f.flag()) {
             case GREEN -> "Great choice for your health plan.";

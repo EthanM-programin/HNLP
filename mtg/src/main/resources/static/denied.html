@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mtg.css">
+<title>Manager sign-in needed · Epic Cure</title>
+</head>
+<body>
+<div class="band"><a class="brand" href="/"><span class="brand-mark"></span>Epic Cure</a><span class="band-meta" id="who"></span></div>
+<main class="wrap narrow" style="padding-top:48px">
+  <h1 id="title">This page is for managers</h1>
+  <p class="muted" id="why">You're signed in with an account that can't open it. Sign in with a manager account to continue.</p>
+  <div class="row" style="flex-wrap:wrap;margin-top:22px">
+    <button class="btn" id="switch">Sign in as a manager</button>
+    <a class="btn ghost" href="/volunteer/checkout.html">Back to volunteer screens</a>
+  </div>
+  <p style="margin-top:22px"><a href="/">Go to the home page</a></p>
+</main>
+<script src="/js/mtg.js"></script>
+<script>
+const from = new URLSearchParams(location.search).get('from') || '/manager/dashboard.html';
+const target = from.startsWith('/') && !from.startsWith('//') ? from : '/manager/dashboard.html';
+MTG.api('/api/checkout/me').then(m => {
+  document.getElementById('who').textContent = 'Signed in as ' + m.username;
+  document.getElementById('why').textContent = `You're signed in as "${m.username}", which can't open this page. Sign in with a manager account to continue.`;
+}).catch(() => {});
+document.getElementById('switch').onclick = async () => {
+  await MTG.signOut();
+  location.href = target;   // not signed in any more, so this goes to the sign-in form and back here after
+};
+</script>
+</body>
+</html>

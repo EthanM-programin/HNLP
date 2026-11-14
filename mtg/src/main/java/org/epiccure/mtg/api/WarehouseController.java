@@ -4,6 +4,7 @@ import org.epiccure.mtg.ai.AiModels.HarnessReport;
 import org.epiccure.mtg.ai.RecipeService;
 import org.epiccure.mtg.api.ApiModels.*;
 import org.epiccure.mtg.service.AnalyticsService;
+import org.epiccure.mtg.service.CheckInService;
 import org.epiccure.mtg.service.CheckoutService;
 import org.epiccure.mtg.service.QueueService;
 import org.epiccure.mtg.service.RestockService;
@@ -25,14 +26,26 @@ public class WarehouseController {
     private final AnalyticsService analytics;
     private final QueueService queue;
     private final RecipeService recipes;
+    private final CheckInService checkIn;
 
     public WarehouseController(CheckoutService checkout, RestockService restock, AnalyticsService analytics,
-                               QueueService queue, RecipeService recipes) {
+                               QueueService queue, RecipeService recipes, CheckInService checkIn) {
         this.checkout = checkout;
         this.restock = restock;
         this.analytics = analytics;
         this.queue = queue;
         this.recipes = recipes;
+        this.checkIn = checkIn;
+    }
+
+    /** Volunteer looks up the shopper at the exit: GET /api/checkout/lookup?clientCode=CLI-1002 */
+    @GetMapping("/checkout/lookup")
+    public SessionView lookup(@RequestParam String clientCode) { return checkIn.activeByClientCode(clientCode); }
+
+    /** Who is signed in (for the staff pages' header). */
+    @GetMapping("/checkout/me")
+    public java.util.Map<String, String> me(Principal principal) {
+        return java.util.Map.of("username", principal == null ? "volunteer" : principal.getName());
     }
 
     // ---- checkout (US-4.1) ----

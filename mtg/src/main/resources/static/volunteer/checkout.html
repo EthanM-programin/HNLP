@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mtg.css">
+<title>Volunteer · Epic Cure</title>
+<style>
+  .who { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .scanned { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .chip { background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: .88rem; display: inline-flex; gap: 6px; align-items: center; }
+  .chip button { border: 0; background: none; cursor: pointer; color: var(--ink-soft); font-size: 1rem; line-height: 1; padding: 0; }
+  .mismatch { font-size: .9rem; color: #5b4300; margin: 4px 0; }
+  .complete { position: sticky; bottom: 0; background: var(--paper); padding: 14px 0; border-top: 1px solid var(--line); margin-top: 16px; }
+  .stopno { font-family: var(--font-head); font-weight: 800; font-size: 1.4rem; color: var(--deep); width: 2.2ch; text-align: right; }
+  .move { font-family: var(--font-head); font-weight: 800; }
+  .arrow { color: var(--ink-soft); padding: 0 6px; }
+  .receipt { background: #fff; border: 1px dashed var(--line); border-radius: var(--r-md); padding: 22px; max-width: 640px; }
+  .rm-form { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .rm-form select { max-width: 220px; min-height: 40px; font-size: .95rem; padding: 6px 10px; }
+  @media print { .band, .seg, .no-print { display: none !important; } .receipt { border: 0; } }
+</style>
+</head>
+<body>
+<div class="band"><a class="brand" href="/"><span class="brand-mark"></span>Epic Cure volunteers</a>
+  <span class="band-meta"><span id="me"></span> <a href="/logout" data-signout style="margin-left:10px">Sign out</a></span></div>
+<main class="wrap">
+  <div class="seg" role="tablist">
+    <button role="tab" aria-selected="true" data-v="checkout">Checkout</button>
+    <button role="tab" aria-selected="false" data-v="restock">Restock route</button>
+  </div>
+
+  <section id="v-checkout">
+    <div id="find">
+      <h1>Exit checkout</h1>
+      <form id="lookup" class="row" style="max-width:520px" autocomplete="off">
+        <input id="client" type="text" placeholder="Shopper's client code, e.g. CLI-1002" aria-label="Client code">
+        <button class="btn">Find visit</button>
+      </form>
+      <p class="small muted" style="margin-top:8px">Checkout matches the items at the exit against the shopper's health plan. Restricted items must be removed before it can finish.</p>
+    </div>
+
+    <div id="work" class="hidden grid2">
+      <div>
+        <div class="who"><h1 id="shopper"></h1><button class="btn small ghost" id="newvisit">Different shopper</button></div>
+        <div id="status"></div>
+        <ul class="list" id="lines" style="margin-top:12px"></ul>
+        <div id="mismatches"></div>
+        <div class="complete no-print">
+          <button class="btn block" id="complete" disabled>Complete checkout</button>
+          <p class="small muted" id="completehint" style="margin:6px 0 0"></p>
+        </div>
+      </div>
+      <aside class="panel">
+        <h2>Scan at the exit</h2>
+        <form id="scan" class="row" autocomplete="off">
+          <input id="code" type="text" inputmode="numeric" placeholder="Scan or type a barcode" aria-label="Barcode">
+          <button class="btn">Add</button>
+        </form>
+        <div class="scanned" id="scanned"></div>
+        <p class="small muted" style="margin-top:12px">Scan every item in the physical cart. With nothing scanned, the shopper's phone cart is used.</p>
+        <button class="btn small ghost" id="clearscans">Clear scans</button>
+      </aside>
+    </div>
+
+    <div id="done" class="hidden"></div>
+  </section>
+
+  <section id="v-restock" class="hidden">
+    <h1>Restock route</h1>
+    <p class="muted">Floor bins below their minimum, in walking order. Bring the listed amount from the stockroom.</p>
+    <div id="route"></div>
+    <h2 style="margin-top:34px">Use soon</h2>
+    <p class="muted">Lots that expire within 7 days. Move them to the front of the bin.</p>
+    <div id="expiring"></div>
+  </section>
+</main>
+
+<script src="/js/mtg.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let token = null, scans = [], last = null;
+
+MTG.api('/api/checkout/me').then(m => $('me').textContent = 'Signed in as ' + m.username).catch(() => {});
+
+document.querySelector('.seg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  $('v-checkout').classList.toggle('hidden', b.dataset.v !== 'checkout');
+  $('v-restock').classList.toggle('hidden', b.dataset.v !== 'restock');
+  if (b.dataset.v === 'restock') loadRestock();
+});
+
+// ---------- checkout ----------
+$('lookup').addEventListener('submit', async e => {
+  e.preventDefault();
+  let c = $('client').value.trim().toUpperCase(); if (/^\d{4}$/.test(c)) c = 'CLI-' + c;
+  try {
+    const s = await MTG.api('/api/checkout/lookup?clientCode=' + encodeURIComponent(c));
+    token = s.sessionToken; scans = [];
+    $('shopper').textContent = `${s.firstName}'s cart`;
+    $('find').classList.add('hidden'); $('done').classList.add('hidden'); $('work').classList.remove('hidden');
+    $('code').focus(); validate();
+  } catch (x) { MTG.toast(x.message); }
+});
+$('newvisit').onclick = () => { token = null; $('work').classList.add('hidden'); $('find').classList.remove('hidden'); $('client').value = ''; $('client').focus(); };
+
+$('scan').addEventListener('submit', e => {
+  e.preventDefault();
+  let c = $('code').value.trim(); if (!c) return;
+  if (/^0\d{12}$/.test(c)) c = c.slice(1);
+  scans.push(c); $('code').value = ''; validate();
+});
+$('clearscans').onclick = () => { scans = []; validate(); };
+$('scanned').addEventListener('click', e => { const i = e.target.dataset.i; if (i != null) { scans.splice(+i, 1); validate(); } });
+
+async function validate() {
+  $('scanned').innerHTML = scans.map((c, i) => `<span class="chip">${MTG.esc(c)}<button type="button" data-i="${i}" aria-label="Remove scan ${MTG.esc(c)}">×</button></span>`).join('');
+  try { render(await MTG.api(`/api/checkout/${token}/validate`, { method: 'POST', body: { scannedCodes: scans } })); }
+  catch (x) {
+    if (x.code === 'PRODUCT_NOT_FOUND') { scans.pop(); MTG.toast('Unknown barcode. Check it and scan again.'); validate(); }
+    else MTG.toast(x.message);
+  }
+}
+
+function render(v) {
+  last = v;
+  const stop = v.status === 'HARD_STOP';
+  $('status').innerHTML = !v.lines.length ? '<div class="ribbon warn">No items yet. Scan the cart, or the phone cart is used once the shopper adds items.</div>'
+    : stop ? `<div class="ribbon stop">Checkout is on hold: ${v.restricted.length} restricted item${v.restricted.length > 1 ? 's' : ''} must be removed.</div>`
+           : `<div class="ribbon ok">Everything fits the shopper's health plan.</div>`;
+  $('lines').innerHTML = v.lines.map(l => {
+    const red = l.item.flag === 'RED';
+    return `<li class="${red ? 'redline' : ''}">${MTG.sticker(l.item.flag, { mini: true })}
+      <div class="grow"><div style="font-weight:700">${MTG.esc(l.item.name)}</div>
+        ${l.item.reasons.length ? `<div class="small muted">${MTG.esc(l.item.reasons.join('; '))}</div>` : ''}
+        ${!l.inCart && l.scanned ? '<div class="small" style="color:#5b4300">Not in the phone cart</div>' : ''}
+        ${red ? `<form class="rm-form" data-pid="${l.item.productId}" data-code="${MTG.esc(l.item.barcode || l.item.sku)}">
+          <select aria-label="Reason"><option>Allergy</option><option>Over the nutrient limit</option><option>Client chose to leave it</option></select>
+          <button class="btn small danger">Remove item</button></form>` : ''}
+      </div><span class="qty">${l.quantity}</span></li>`;
+  }).join('');
+  $('mismatches').innerHTML = v.mismatches.map(m => `<p class="mismatch">⚠ ${MTG.esc(m)}</p>`).join('');
+  $('complete').disabled = stop || !v.lines.length;
+  $('completehint').textContent = stop ? 'Remove the restricted items to unlock checkout.' : v.lines.length ? `${v.totalUnits} items, about ${MTG.lb(v.totalWeightLb)}` : '';
+}
+
+$('lines').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, code = f.dataset.code;
+  try {
+    const v = await MTG.api(`/api/checkout/${token}/remove`, { method: 'POST',
+      body: { productId: +f.dataset.pid, reason: f.querySelector('select').value, scannedCodes: scans } });
+    scans = scans.filter(c => c !== code && c.toUpperCase() !== code.toUpperCase());
+    $('scanned').innerHTML = scans.map((c, i) => `<span class="chip">${MTG.esc(c)}<button type="button" data-i="${i}">×</button></span>`).join('');
+    render(v); MTG.toast('Removed and logged');
+  } catch (x) { MTG.toast(x.message); }
+});
+
+$('complete').onclick = async () => {
+  $('complete').disabled = true;
+  try {
+    const r = await MTG.api(`/api/checkout/${token}/complete`, { method: 'POST', body: { scannedCodes: scans } });
+    $('work').classList.add('hidden'); $('done').classList.remove('hidden');
+    $('done').innerHTML = `<div class="receipt"><h1>Checked out: ${MTG.esc(r.firstName)}</h1>
+      <p class="muted">${new Date(r.completedAt).toLocaleString()} · ${MTG.esc(r.volunteer)}</p>
+      <table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Weight</th><th>Funding</th></tr></thead><tbody>
+      ${r.lines.map(l => `<tr><td>${MTG.esc(l.name)}${l.shortfall ? ` <span class="small" style="color:#7d1d10">(${l.shortfall} not in stock records)</span>` : ''}</td>
+        <td class="num">${l.quantity}</td><td class="num">${MTG.lb(l.weightLb)}</td>
+        <td class="small">${[...new Set(l.lots.map(x => x.fundingStream || 'Unattributed'))].map(MTG.esc).join(', ')}</td></tr>`).join('')}
+      </tbody></table>
+      <p style="margin-top:12px"><b>${r.totalUnits} items, ${MTG.lb(r.totalWeightLb)}</b></p>
+      ${r.expiryAlerts.length ? `<div class="ribbon warn" style="margin-top:12px">${r.expiryAlerts.length} lot${r.expiryAlerts.length > 1 ? 's' : ''} touched in this checkout expire within 7 days. See "Use soon" on the restock route.</div>` : ''}
+      ${r.promotedFromQueue ? `<p class="small muted" style="margin-top:10px">${r.promotedFromQueue} person from the waiting line can come in now.</p>` : ''}
+      <div class="row no-print" style="margin-top:18px"><button class="btn ghost" onclick="print()">Print receipt</button>
+        <button class="btn" id="next">Next shopper</button></div></div>`;
+    $('next').onclick = () => { $('done').classList.add('hidden'); $('newvisit').click(); };
+  } catch (x) {
+    if (x.code === 'HARD_STOP' && x.details) render(x.details);
+    MTG.toast(x.message);
+  }
+};
+
+// ---------- restock ----------
+async function loadRestock() {
+  $('route').innerHTML = '<p class="muted"><span class="spinner"></span> Building the route…</p>';
+  try {
+    const r = await MTG.api('/api/restock');
+    $('route').innerHTML = r.route.length ? `<ul class="list">${r.route.map(t => `<li><span class="stopno">${t.stop}</span>
+        <div class="grow"><div style="font-weight:700">${MTG.esc(t.name)}</div>
+          <div class="small muted">${t.floorQty} on the shelf, minimum ${t.threshold}</div></div>
+        <span>${MTG.tag(t.fromStockroom)}<span class="arrow" aria-label="to">→</span>${MTG.tag(t.floorLocation)}</span>
+        <span class="move">${t.moveQty > 0 ? '+' + t.moveQty : 'Out of stock'}</span></li>`).join('')}</ul>`
+      : '<p class="empty">Every floor bin is above its minimum.</p>';
+    $('expiring').innerHTML = r.expiring.length ? `<table><thead><tr><th>Item</th><th>Where</th><th class="num">Left</th><th class="num">Expires</th></tr></thead><tbody>
+      ${r.expiring.map(x => `<tr><td>${MTG.esc(x.productName)}</td><td class="small">${MTG.esc(x.location)}</td><td class="num">${x.quantityRemaining}</td>
+        <td class="num" style="${x.daysLeft <= 2 ? 'color:#7d1d10;font-weight:700' : ''}">${x.daysLeft <= 0 ? 'Today' : 'In ' + x.daysLeft + ' day' + (x.daysLeft > 1 ? 's' : '')}</td></tr>`).join('')}</tbody></table>`
+      : '<p class="empty">Nothing expires this week.</p>';
+  } catch (x) { $('route').innerHTML = ''; MTG.toast(x.message); }
+}
+</script>
+</body>
+</html>

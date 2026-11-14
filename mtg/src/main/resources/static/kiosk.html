@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mtg.css">
+<title>Check in · Epic Cure</title>
+<style>
+  body { background: var(--wash); }
+  .k { min-height: calc(100vh - 56px); display: grid; gap: 30px; align-items: center; max-width: 1080px; margin: 0 auto; padding: 28px 20px; }
+  @media (min-width: 880px) { .k { grid-template-columns: 1fr 420px; } }
+  .floor { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
+  .slot { width: 30px; height: 30px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2px var(--line); }
+  .slot.on { background: var(--leaf); box-shadow: none; }
+  .pad { background: #fff; border-radius: 22px; padding: 22px; box-shadow: 0 10px 30px rgba(23,48,31,.10); }
+  .code { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-head); font-weight: 800; font-size: 2.6rem; border-bottom: 3px solid var(--ink); padding: 4px 4px 8px; margin-bottom: 18px; letter-spacing: .04em; }
+  .code .pre { color: var(--ink-soft); }
+  .code .dig { min-width: 4.4ch; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .keys button { font: 800 1.6rem var(--font-head); padding: 16px 0; border-radius: 14px; border: 0; background: var(--wash); color: var(--ink); cursor: pointer; min-height: 64px; }
+  .keys button:active { background: var(--line); }
+  .keys .go { background: var(--deep); color: #fff; font-size: 1.1rem; }
+  .targets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; margin: 18px 0; border-top: 1px solid var(--line); }
+  .targets div { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .targets b { display: block; font-family: var(--font-head); font-size: 1.6rem; }
+  .place { font-family: var(--font-head); font-weight: 800; font-size: 5rem; line-height: 1; color: var(--deep); }
+  .err { color: #7d1d10; font-weight: 700; min-height: 1.5em; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="band"><a class="brand" href="/"><span class="brand-mark"></span>Epic Cure</a><span class="band-meta">Medically Tailored Groceries</span></div>
+
+<main class="k" id="start">
+  <section>
+    <h1>Welcome. Enter your client code to start shopping.</h1>
+    <p class="muted">Your code is on your Epic Cure card. If you don't have one, a volunteer can help.</p>
+    <div class="floor" id="floor" aria-hidden="true"></div>
+    <p class="muted small" id="cap"></p>
+  </section>
+  <form class="pad" id="form" autocomplete="off">
+    <label for="digits" class="muted small">Client code</label>
+    <div class="code"><span class="pre">CLI-</span><span class="dig" id="shown">____</span></div>
+    <input id="digits" type="text" inputmode="numeric" maxlength="4" class="hidden" aria-label="Last four digits of your client code">
+    <div class="keys" id="keys"></div>
+    <div class="err" id="err" role="alert"></div>
+  </form>
+</main>
+
+<main class="k hidden" id="done">
+  <section id="welcome"></section>
+  <aside class="pad" id="next"></aside>
+</main>
+
+<script src="/js/mtg.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let digits = '', pollTimer = null, resetTimer = null;
+
+function drawKeys() {
+  const k = ['1','2','3','4','5','6','7','8','9','clear','0','go'];
+  $('keys').innerHTML = k.map(x => x === 'go' ? '<button type="submit" class="go">Check in</button>'
+    : x === 'clear' ? '<button type="button" data-k="clear" aria-label="Clear">⌫</button>'
+    : `<button type="button" data-k="${x}">${x}</button>`).join('');
+}
+function show() { $('shown').textContent = (digits + '____').slice(0, 4); }
+$('keys').addEventListener('click', e => {
+  const k = e.target.closest('button')?.dataset.k; if (!k) return;
+  digits = k === 'clear' ? digits.slice(0, -1) : (digits + k).slice(0, 4); $('err').textContent = ''; show();
+});
+document.addEventListener('keydown', e => {
+  if (!$('done').classList.contains('hidden')) return;
+  if (/^[0-9]$/.test(e.key)) { digits = (digits + e.key).slice(0, 4); show(); }
+  if (e.key === 'Backspace') { digits = digits.slice(0, -1); show(); }
+});
+
+async function floor() {
+  const c = await MTG.capacity($('cap'));
+  if (c) $('floor').innerHTML = Array.from({ length: c.maxCapacity }, (_, i) => `<span class="slot ${i < c.activeShoppers ? 'on' : ''}"></span>`).join('');
+}
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (digits.length < 4) { $('err').textContent = 'Enter all four digits of your code.'; return; }
+  try { render(await MTG.api('/api/checkin', { method: 'POST', body: { clientCode: 'CLI-' + digits } })); }
+  catch (x) { $('err').textContent = x.message; }
+});
+
+function render(s) {
+  $('start').classList.add('hidden'); $('done').classList.remove('hidden');
+  clearTimeout(pollTimer); clearTimeout(resetTimer);
+  const shopUrl = location.origin + '/shop.html';
+  if (s.status === 'WAITING') {
+    $('welcome').innerHTML = `<h1>Thanks, ${MTG.esc(s.firstName)}. The floor is full right now.</h1>
+      <p class="muted">You're in line. This screen updates on its own, and you can also follow along on your phone.</p>`;
+    $('next').innerHTML = `<p class="muted">Your place in line</p><div class="place">${s.queuePosition}</div>
+      <p class="small muted">${s.activeShoppers} of ${s.maxCapacity} shoppers on the floor</p>`;
+    pollTimer = setTimeout(async () => { try { render(await MTG.api('/api/session/' + s.sessionToken)); } catch {} }, 5000);
+    return;
+  }
+  const t = s.targets;
+  $('welcome').innerHTML = `<h1>Welcome, ${MTG.esc(s.firstName)}. You're all set to shop.</h1>
+    <p class="muted">${MTG.esc(s.tierName || '')}. Here's what to aim for today for your household of ${s.householdSize}:</p>
+    <div class="targets">
+      <div><b>${MTG.lb(t.produceLb)}</b>fruit &amp; vegetables</div><div><b>${MTG.lb(t.proteinLb)}</b>protein</div>
+      <div><b>${MTG.lb(t.grainLb)}</b>grains</div><div><b>${Number(t.dairyUnits)}</b>dairy items</div>
+    </div>
+    <h3>Your plan focuses on</h3><ul class="reasons">${s.dietFocus.map(d => '<li>' + MTG.esc(d) + '</li>').join('')}</ul>`;
+  $('next').innerHTML = `<h2>Grab a cart</h2>
+    <p>Scan items with your phone to check them as you go.</p>
+    <a class="btn block" href="/shop.html?s=${encodeURIComponent(s.sessionToken)}">Shop on this screen</a>
+    <p class="small muted" style="margin-top:16px">On your own phone, open <b>${MTG.esc(shopUrl.replace(/^https?:\/\//, ''))}</b> and enter code <b>CLI-${digits}</b>.</p>
+    <button class="btn ghost block" id="again" style="margin-top:8px">Next person</button>`;
+  $('again').onclick = reset;
+  resetTimer = setTimeout(reset, 60000);
+}
+function reset() { digits = ''; show(); $('done').classList.add('hidden'); $('start').classList.remove('hidden'); floor(); }
+
+drawKeys(); show(); floor(); setInterval(floor, 15000);
+</script>
+</body>
+</html>

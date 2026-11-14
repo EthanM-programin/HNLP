@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mtg.css">
+<title>Staff sign-in · Epic Cure</title>
+<style>
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+  .split { flex: 1; display: grid; grid-template-columns: 1fr; }
+  @media (min-width: 880px) { .split { grid-template-columns: 1fr 1fr; } }
+  .side { background: var(--deep); color: #eef4ee; padding: 48px 40px; display: none; flex-direction: column; justify-content: space-between; }
+  @media (min-width: 880px) { .side { display: flex; } }
+  .side h1 { color: #fff; font-size: clamp(2rem, 3.4vw, 2.8rem); max-width: 13ch; }
+  .side p { color: #cfe0d3; max-width: 38ch; }
+  .roles { list-style: none; padding: 0; margin: 28px 0 0; }
+  .roles li { padding: 14px 0; border-top: 1px solid rgba(255,255,255,.18); }
+  .roles b { display: block; font-family: var(--font-head); color: #fff; font-size: 1.05rem; }
+  .stickers { display: flex; gap: 14px; }
+  .stickers .sticker { width: 74px; height: 74px; box-shadow: 0 0 0 4px var(--deep), 0 0 0 6px var(--c); }
+  .stickers .sticker .ico { font-size: 1.7rem; }
+  .stickers .sticker .word { display: none; }
+  .form-side { display: grid; place-items: center; padding: 40px 20px; }
+  form { width: 100%; max-width: 380px; }
+  .field { margin-bottom: 16px; }
+  input[type=password] { width: 100%; font: 1.1rem var(--font-body); padding: 12px 14px; border: 2px solid var(--line); border-radius: var(--r-sm); background: #fff; color: var(--ink); min-height: 50px; }
+  input[type=password]:focus, input[type=text]:focus { border-color: var(--deep); outline: none; }
+  .msg { border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; font-weight: 700; }
+  .msg.err { background: #fbe4e0; color: #7d1d10; }
+  .msg.ok { background: #e3f2e7; color: #164a29; }
+  .hint { margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--line); font-size: .9rem; color: var(--ink-soft); }
+  .hint code { background: var(--wash); padding: 1px 6px; border-radius: 4px; font-size: .88rem; }
+  .pw { position: relative; }
+  .pw button { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--deep); font: 700 .88rem var(--font-body); cursor: pointer; padding: 6px; }
+</style>
+</head>
+<body>
+<div class="band"><a class="brand" href="/"><span class="brand-mark"></span>Epic Cure</a><span class="band-meta"><a href="/">Back to home</a></span></div>
+<div class="split">
+  <aside class="side" aria-hidden="true">
+    <div>
+      <h1>Staff sign-in</h1>
+      <p>For Epic Cure volunteers and managers. Clients never need to sign in; they just use their client code at the kiosk.</p>
+      <ul class="roles">
+        <li><b>Volunteers</b>Exit checkout with the safety stop, and the restock route.</li>
+        <li><b>Managers</b>Everything volunteers can do, plus program results and grant reports.</li>
+      </ul>
+    </div>
+    <div class="stickers">
+      <div class="sticker GREEN"><div><div class="ico">✓</div><div class="word">Good pick</div></div></div>
+      <div class="sticker YELLOW"><div><div class="ico">!</div><div class="word">Limit</div></div></div>
+      <div class="sticker RED"><div><div class="ico">✕</div><div class="word">Put it back</div></div></div>
+    </div>
+  </aside>
+
+  <main class="form-side">
+    <form th:action="@{/login}" method="post" autocomplete="on">
+      <h2 style="font-size:1.6rem">Sign in</h2>
+      <p class="muted">Use the account your coordinator gave you.</p>
+
+      <div class="msg err" th:if="${param.error}" role="alert">That username and password don't match. Check them and try again.</div>
+      <div class="msg ok" th:if="${param.logout}" role="status">You're signed out.</div>
+
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="pw">
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+          <button type="button" id="show" aria-controls="password">Show</button>
+        </div>
+      </div>
+      <button class="btn block" type="submit">Sign in</button>
+
+      <p class="hint" th:if="${demoHint}">Demo accounts: <code>volunteer</code> / <code>volunteer</code> and <code>manager</code> / <code>manager</code>.</p>
+    </form>
+  </main>
+</div>
+<script>
+  document.getElementById('show').onclick = e => {
+    const p = document.getElementById('password'), showing = p.type === 'text';
+    p.type = showing ? 'password' : 'text'; e.target.textContent = showing ? 'Show' : 'Hide';
+  };
+</script>
+</body>
+</html>

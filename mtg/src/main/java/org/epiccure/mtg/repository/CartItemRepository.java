@@ -2,6 +2,7 @@ package org.epiccure.mtg.repository;
 
 import org.epiccure.mtg.model.CartItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,4 +15,8 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
     List<CartItem> findWithProduct(@Param("sessionId") Long sessionId);
 
     Optional<CartItem> findBySessionIdAndProductId(Long sessionId, Long productId);
+
+    @Modifying
+    @Query("delete from CartItem c where c.session.id = :sessionId")
+    int deleteBySession(@Param("sessionId") Long sessionId);
 }

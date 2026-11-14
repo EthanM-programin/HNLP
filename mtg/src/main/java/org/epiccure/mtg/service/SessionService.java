@@ -13,8 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Session lifecycle + the per-visit ruleset. PHI (ICD-10 codes, allergies) is decrypted only here, at activation,
@@ -44,7 +46,25 @@ public class SessionService {
         this.engine = engine;
     }
 
+    /**
+     * Tabs that were closed (sendBeacon "away"): token -> when to end the visit. Any later request carrying the
+     * token (a page reload, the shopper's other tab, the heartbeat) cancels it, so only a real exit ends the visit.
+     */
+    private final Map<String, Instant> pendingLeave = new ConcurrentHashMap<>();
+
+    public void markLeaving(String token, Duration grace) { pendingLeave.put(token, Instant.now().plus(grace)); }
+
+    /** Tokens whose grace period ran out (removed from the registry as they're returned). */
+    public List<String> dueLeaves() {
+        Instant now = Instant.now();
+        List<String> due = new ArrayList<>();
+        pendingLeave.forEach((t, at) -> { if (at.isBefore(now)) due.add(t); });
+        due.forEach(pendingLeave::remove);
+        return due;
+    }
+
     public ShoppingSession require(String token) {
+        pendingLeave.remove(token);
         return sessions.findBySessionToken(token)
                 .orElseThrow(() -> ApiException.notFound("SESSION_NOT_FOUND", "No shopping session for that token."));
     }

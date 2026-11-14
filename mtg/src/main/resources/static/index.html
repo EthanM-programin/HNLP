@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mtg.css">
+<title>Epic Cure: Medically Tailored Groceries</title>
+<style>
+  .hero { display: grid; gap: 28px; align-items: center; padding: 34px 0 10px; }
+  @media (min-width: 820px) { .hero { grid-template-columns: 1.2fr .8fr; } }
+  .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); max-width: 14ch; }
+  .demo { display: flex; gap: 22px; align-items: center; justify-content: center; padding: 26px; }
+  .doors { display: grid; gap: 0; grid-template-columns: 1fr; margin-top: 28px; border-top: 2px solid var(--ink); }
+  @media (min-width: 700px) { .doors { grid-template-columns: 1fr 1fr; } }
+  .door { display: block; padding: 20px 4px 22px; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+  @media (min-width: 700px) { .door:nth-child(odd) { border-right: 1px solid var(--line); padding-right: 22px; } .door:nth-child(even) { padding-left: 22px; } }
+  .door h2 { color: var(--deep); margin-bottom: 4px; }
+  .door p { margin: 0; color: var(--ink-soft); }
+  .door .who { font-size: .85rem; color: var(--ink-soft); margin-top: 8px; display: inline-block; }
+  .door:hover h2 { text-decoration: underline; text-underline-offset: 4px; }
+</style>
+</head>
+<body>
+<div class="band"><a class="brand" href="/"><span class="brand-mark"></span>Epic Cure</a><span class="band-meta" id="cap"></span></div>
+<main class="wrap">
+  <section class="hero">
+    <div>
+      <h1>Pick your own groceries, matched to your health.</h1>
+      <p class="muted">Scan anything on the shelf and see right away whether it fits your diet plan. Free, no ID needed.</p>
+    </div>
+    <div class="panel demo" aria-hidden="true">
+      <div class="sticker GREEN" style="width:96px;height:96px"><div><div class="ico">✓</div><div class="word">Good pick</div></div></div>
+      <div class="sticker YELLOW" style="width:96px;height:96px"><div><div class="ico">!</div><div class="word">Limit 2</div></div></div>
+      <div class="sticker RED" style="width:96px;height:96px"><div><div class="ico">✕</div><div class="word">Put it back</div></div></div>
+    </div>
+  </section>
+  <nav class="doors" aria-label="Choose a screen">
+    <a class="door" href="/kiosk.html"><h2>Check in</h2><p>Enter your client code at the entrance kiosk.</p><span class="who">For clients</span></a>
+    <a class="door" href="/shop.html"><h2>Shop with your phone</h2><p>Suggestions, aisle scans, your cart, and recipes.</p><span class="who">For clients</span></a>
+    <a class="door" href="/volunteer/checkout.html"><h2>Checkout and restock</h2><p>Exit scan with safety stop, and the restock route.</p><span class="who">Volunteer sign-in</span></a>
+    <a class="door" href="/manager/dashboard.html"><h2>Program results</h2><p>Health trends and grant reports, with no personal details.</p><span class="who">Manager sign-in</span></a>
+  </nav>
+</main>
+<script src="/js/mtg.js"></script>
+<script>MTG.capacity(document.getElementById('cap'));</script>
+</body>
+</html>

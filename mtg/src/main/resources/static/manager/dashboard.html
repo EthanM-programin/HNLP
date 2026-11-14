@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mtg.css">
+<title>Program results · Epic Cure</title>
+<style>
+  .metric { display: grid; grid-template-columns: 1fr 180px; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .metric h3 { margin: 0; }
+  .delta { font-family: var(--font-head); font-weight: 800; font-size: 1.5rem; }
+  .delta.IMPROVED { color: var(--leaf); } .delta.WORSENED { color: var(--tomato); } .delta.SUPPRESSED { color: var(--ink-soft); font-size: 1rem; }
+  .bar { height: 14px; background: var(--leaf); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .barrow { display: grid; grid-template-columns: minmax(120px, 200px) 1fr 80px; gap: 12px; align-items: center; padding: 8px 0; }
+  .downloads { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pass { font-family: var(--font-head); font-weight: 800; font-size: 1.3rem; }
+  section + section { margin-top: 40px; }
+  .facts { display: flex; gap: 28px; flex-wrap: wrap; margin: 10px 0 4px; }
+  .facts div b { display: block; font-family: var(--font-head); font-size: 1.6rem; }
+  svg text { font: 11px var(--font-body); fill: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="band"><a class="brand" href="/"><span class="brand-mark"></span>Epic Cure program results</a>
+  <span class="band-meta"><a href="/volunteer/checkout.html">Volunteer screens</a> <a href="/logout" data-signout style="margin-left:12px">Sign out</a></span></div>
+<main class="wrap">
+  <section>
+    <h1>Client health over time</h1>
+    <p class="muted" id="outnote">Average readings at enrollment, 3 months, and 6 months. No names or IDs are included.</p>
+    <div id="outcomes"><p class="muted"><span class="spinner"></span> Loading…</p></div>
+    <div class="downloads" style="margin-top:14px"><a class="btn ghost small" href="/api/analytics/outcomes.csv">Download outcomes (CSV)</a></div>
+  </section>
+
+  <section>
+    <h2>Food distributed by funding source</h2>
+    <p class="muted">Every pound is traced to the inventory lot it came from, and that lot's grant.</p>
+    <div id="grants"><p class="muted"><span class="spinner"></span> Loading…</p></div>
+    <div class="downloads" style="margin-top:14px"><a class="btn ghost small" href="/api/analytics/grants.csv">Download grant report (CSV)</a></div>
+  </section>
+
+  <section class="panel">
+    <h2>AI safety check</h2>
+    <p>Runs the recipe AI for every sample client and checks that nothing restricted or out of stock would reach a shopper. Uses one free-tier AI call per client.</p>
+    <button class="btn" id="harness">Run safety check</button>
+    <div id="harnessout" style="margin-top:14px" aria-live="polite"></div>
+  </section>
+</main>
+
+<script src="/js/mtg.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const NAMES = { A1C: 'Blood sugar (A1C)', SYSTOLIC_BP: 'Blood pressure (systolic)', EGFR: 'Kidney function (eGFR)', WEIGHT_LB: 'Weight' };
+
+function spark(m) {
+  const pts = [m.baseline, m.month3, m.month6].map(Number);
+  if (pts.some(isNaN)) return '';
+  const lo = Math.min(...pts), hi = Math.max(...pts), pad = (hi - lo) * .2 || 1;
+  const y = v => 52 - ((v - lo + pad) / (hi - lo + 2 * pad)) * 44;
+  const xs = [14, 90, 166];
+  const col = m.direction === 'IMPROVED' ? 'var(--leaf)' : m.direction === 'WORSENED' ? 'var(--tomato)' : 'var(--ink-soft)';
+  return `<svg viewBox="0 0 180 72" width="180" height="72" role="img" aria-label="${m.baseline} to ${m.month3} to ${m.month6}">
+    <polyline fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${xs.map((x, i) => x + ',' + y(pts[i])).join(' ')}"/>
+    ${xs.map((x, i) => `<circle cx="${x}" cy="${y(pts[i])}" r="4" fill="#fff" stroke="${col}" stroke-width="2"/>`).join('')}
+    <text x="14" y="68" text-anchor="middle">start</text><text x="90" y="68" text-anchor="middle">3 mo</text><text x="166" y="68" text-anchor="middle">6 mo</text></svg>`;
+}
+
+MTG.api('/api/analytics/outcomes').then(o => {
+  $('outcomes').innerHTML = o.metrics.map(m => {
+    const name = NAMES[m.metric] || m.metric;
+    if (m.direction === 'SUPPRESSED') return `<div class="metric"><div><h3>${name}</h3><p class="small muted">Hidden: fewer than ${o.minCohort} clients, so individuals could be identified.</p></div><div class="delta SUPPRESSED">Not shown</div></div>`;
+    const sign = Number(m.change) > 0 ? '+' : '';
+    return `<div class="metric"><div><h3>${name}</h3>
+      <div class="delta ${m.direction}">${sign}${Number(m.change)} ${MTG.esc(m.unit)} <span class="small">(${sign}${Number(m.changePct)}%)</span></div>
+      <p class="small muted" style="margin:2px 0 0">${m.direction === 'IMPROVED' ? 'Improved' : m.direction === 'WORSENED' ? 'Worsened' : 'No change'} across ${m.clients} clients, from ${Number(m.baseline)} to ${Number(m.month6 ?? m.month3)}</p></div>
+      ${spark(m)}</div>`;
+  }).join('') || '<p class="empty">No readings recorded yet.</p>';
+}).catch(x => $('outcomes').innerHTML = `<p class="empty">${MTG.esc(x.message)}</p>`);
+
+MTG.api('/api/analytics/grants').then(g => {
+  if (!g.rows.length) { $('grants').innerHTML = '<p class="empty">No checkouts yet. Distributed food will appear here after the first completed checkout.</p>'; return; }
+  const by = {}; g.rows.forEach(r => { by[r.fundingStream] = (by[r.fundingStream] || 0) + Number(r.pounds); });
+  const max = Math.max(...Object.values(by));
+  $('grants').innerHTML = `<div class="facts"><div><b>${MTG.lb(g.totalPounds)}</b>distributed</div><div><b>${g.checkouts}</b>checkouts</div><div><b>${Object.keys(by).length}</b>funding sources</div></div>` +
+    Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="barrow"><span>${MTG.esc(k)}</span>
+      <div class="bar" style="width:${(v / max * 100).toFixed(1)}%"></div><span class="num">${MTG.lb(v)}</span></div>`).join('') +
+    `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--deep)">By food category</summary>
+      <table style="margin-top:8px"><thead><tr><th>Funding source</th><th>Category</th><th class="num">Items</th><th class="num">Pounds</th></tr></thead><tbody>
+      ${g.rows.map(r => `<tr><td>${MTG.esc(r.fundingStream)}</td><td>${MTG.esc(MTG.prettyCategory(r.category))}</td><td class="num">${r.units}</td><td class="num">${Number(r.pounds)}</td></tr>`).join('')}
+      </tbody></table></details>`;
+}).catch(x => $('grants').innerHTML = `<p class="empty">${MTG.esc(x.message)}</p>`);
+
+$('harness').onclick = async () => {
+  const b = $('harness'); b.disabled = true;
+  $('harnessout').innerHTML = '<p class="muted"><span class="spinner"></span> Running the AI for each sample client…</p>';
+  try {
+    const h = await MTG.api('/api/admin/ai-harness?runs=1');
+    $('harnessout').innerHTML = `<div class="ribbon ${h.passed ? 'ok' : 'stop'}"><span class="pass">${h.passed ? '✓ Passed' : '✕ Failed'}</span>
+        <span>${h.servedRestrictedViolations} restricted and ${h.servedOutOfStock} out-of-stock items would have reached shoppers.</span></div>
+      <div class="facts"><div><b>${h.aiServed}/${h.runs}</b>answered by AI</div><div><b>${h.restrictedCaughtByValidator}</b>unsafe AI picks blocked</div>
+        <div><b>${h.rejected}</b>AI recipes rejected</div><div><b>${(h.avgLatencyMs / 1000).toFixed(1)} s</b>average response</div></div>
+      <table><thead><tr><th>Client</th><th>Diet focus</th><th>Result</th></tr></thead><tbody>
+      ${h.cases.map(c => `<tr><td>${MTG.esc(c.persona)}</td><td class="small">${MTG.esc(c.dietFocus.join('; '))}</td>
+        <td class="small">${c.source === 'AI' ? `${c.servedRecipes} AI recipes` : 'Standard recipes (' + MTG.esc(c.failure || '') + ')'}${c.restrictedCaught ? `, ${c.restrictedCaught} unsafe blocked` : ''}</td></tr>`).join('')}
+      </tbody></table>`;
+  } catch (x) { $('harnessout').innerHTML = `<div class="ribbon warn">${MTG.esc(x.message)}</div>`; }
+  finally { b.disabled = false; }
+};
+</script>
+</body>
+</html>

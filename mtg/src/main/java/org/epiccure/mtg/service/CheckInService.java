@@ -71,6 +71,17 @@ public class CheckInService {
         return view(s);
     }
 
+    /** Volunteer exit terminal: find the shopper's ACTIVE visit by client code (no new session is created). */
+    @Transactional(readOnly = true)
+    public SessionView activeByClientCode(String clientCode) {
+        if (clientCode == null || clientCode.isBlank()) throw ApiException.badRequest("CLIENT_CODE_REQUIRED", "Enter the shopper's client code.");
+        Client c = clients.findByClientCode(clientCode.trim().toUpperCase(Locale.ROOT))
+                .orElseThrow(() -> ApiException.notFound("CLIENT_NOT_FOUND", "No client with that code."));
+        ShoppingSession s = sessions.findFirstByClientIdAndStatusInOrderByCreatedAtDesc(c.getId(), List.of(SessionService.ACTIVE))
+                .orElseThrow(() -> ApiException.notFound("NO_ACTIVE_SESSION", c.getFirstName() + " doesn't have an active shopping visit right now."));
+        return view(s);
+    }
+
     /** Kiosk/phone polling: also tells a WAITING client when they've been let in. */
     @Transactional(readOnly = true)
     public SessionView status(String token) {

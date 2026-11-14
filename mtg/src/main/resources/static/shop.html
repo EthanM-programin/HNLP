@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mtg.css">
+<title>Shop · Epic Cure</title>
+<style>
+  .hello { padding: 6px 0 14px; }
+  .goal { display: flex; gap: 18px; flex-wrap: wrap; font-size: .92rem; color: var(--ink-soft); margin-top: 6px; }
+  .goal b { color: var(--ink); font-family: var(--font-head); }
+  .cat { margin-top: 24px; }
+  .cat h2 { font-size: 1.15rem; border-bottom: 2px solid var(--ink); padding-bottom: 6px; margin-bottom: 0; }
+  .name { font-weight: 700; }
+  .result { display: flex; gap: 22px; align-items: center; padding: 22px 6px 4px; }
+  .result + .msg { font-size: 1.1rem; margin-top: 14px; }
+  .result h2 { margin-bottom: 4px; }
+  .msg { font-weight: 700; margin: 6px 0; }
+  video { width: 100%; border-radius: 14px; background: #000; max-height: 46vh; object-fit: cover; }
+  .scanbox { position: relative; }
+  .scanbox::after { content: ""; position: absolute; left: 12%; right: 12%; top: 50%; height: 2px; background: var(--tomato); box-shadow: 0 0 10px var(--tomato); }
+  details summary { cursor: pointer; font-weight: 700; color: var(--deep); padding: 8px 0; }
+  .codes { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: .92rem; }
+  .codes button { font: inherit; color: var(--deep); background: none; border: 0; text-decoration: underline; cursor: pointer; padding: 2px 0; text-align: left; }
+  .recipe { padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .recipe ol { padding-left: 20px; margin: 8px 0 0; }
+  .ing { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .ing .have { color: var(--leaf); font-weight: 700; }
+  .source { font-size: .88rem; color: var(--ink-soft); margin-bottom: 4px; }
+  .codein { display: flex; align-items: center; border: 2px solid var(--line); border-radius: var(--r-sm); background: #fff; }
+  .codein span { padding-left: 14px; font-weight: 700; color: var(--ink-soft); font-size: 1.1rem; }
+  .codein input { border: 0; min-height: 50px; }
+  .place { font-family: var(--font-head); font-weight: 800; font-size: 4.5rem; color: var(--deep); line-height: 1; }
+  .empty { text-align: center; padding: 40px 10px; color: var(--ink-soft); }
+  dialog { border: 0; border-radius: 18px; padding: 24px; max-width: min(440px, calc(100% - 32px)); color: var(--ink); box-shadow: 0 20px 60px rgba(23,48,31,.25); }
+  dialog::backdrop { background: rgba(23,48,31,.45); }
+  .notice { background: var(--wash); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="band"><a class="brand" href="/"><span class="brand-mark"></span>Epic Cure</a>
+  <span class="band-meta"><span id="who"></span> <button class="btn small ghost hidden" id="endbtn" style="color:#f3f7f1;box-shadow:inset 0 0 0 2px #f3f7f1;margin-left:8px">End visit</button></span></div>
+
+<dialog id="leave" aria-labelledby="leave-title">
+  <h2 id="leave-title">End your visit?</h2>
+  <div id="leave-body"></div>
+  <div class="row" style="margin-top:16px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="btn ghost" id="leave-cancel">Keep shopping</button>
+    <button class="btn danger" id="leave-ok">End visit</button>
+  </div>
+</dialog>
+
+<main class="wrap narrow" id="v-signin">
+  <div class="notice hidden" id="bye" role="status"></div>
+  <h1>Start shopping</h1>
+  <p class="muted">Enter the client code from your Epic Cure card.</p>
+  <form id="signin" autocomplete="off">
+    <label for="code">Client code</label>
+    <div class="codein"><span>CLI-</span><input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="1002"></div>
+    <p id="signin-err" class="small" style="color:#7d1d10;font-weight:700;min-height:1.4em;margin-top:8px" role="alert"></p>
+    <button class="btn block">Check in</button>
+  </form>
+</main>
+
+<main class="wrap narrow hidden" id="v-wait">
+  <h1>You're in line</h1>
+  <p class="muted">The floor is full right now. This page updates by itself when it's your turn.</p>
+  <div class="place" id="place"></div>
+  <p class="muted small">Your place in line</p>
+  <button class="btn ghost" id="leaveline" style="margin-top:20px">Leave the line</button>
+</main>
+
+<main class="wrap narrow hidden" id="v-app">
+  <section id="t-foryou"></section>
+  <section id="t-scan" class="hidden">
+    <h1>Check an item</h1>
+    <div id="cam" class="hidden"><div class="scanbox"><video id="video" playsinline muted></video></div>
+      <button class="btn ghost block" id="stopcam" style="margin-top:10px">Stop camera</button></div>
+    <button class="btn block" id="startcam">Scan with camera</button>
+    <form id="manual" class="row" style="margin-top:14px" autocomplete="off">
+      <input id="manualcode" type="text" inputmode="numeric" placeholder="Type a barcode" aria-label="Barcode or SKU">
+      <button class="btn">Check</button>
+    </form>
+    <details style="margin-top:10px"><summary>Example codes for the demo</summary>
+      <div class="codes" id="examples"></div></details>
+    <div id="result" aria-live="polite"></div>
+  </section>
+  <section id="t-cart" class="hidden"></section>
+  <section id="t-recipes" class="hidden">
+    <h1>Recipes for your cart</h1>
+    <p class="muted">Meal ideas built from what's in your cart, checked against your health plan.</p>
+    <button class="btn block" id="getrecipes">Suggest recipes</button>
+    <div id="recipes" aria-live="polite"></div>
+  </section>
+</main>
+
+<nav class="tabs hidden" id="tabs" role="tablist">
+  <button role="tab" data-t="foryou" aria-selected="true"><span class="ti" aria-hidden="true">★</span>For you</button>
+  <button role="tab" data-t="scan" aria-selected="false"><span class="ti" aria-hidden="true">▦</span>Scan</button>
+  <button role="tab" data-t="cart" aria-selected="false"><span class="ti" aria-hidden="true">🛒</span>Cart<span class="badge neutral hidden" id="cartcount"></span></button>
+  <button role="tab" data-t="recipes" aria-selected="false"><span class="ti" aria-hidden="true">🍲</span>Recipes</button>
+</nav>
+
+<script src="/js/mtg.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const store = { get: () => { try { return localStorage.getItem('mtg.session'); } catch { return null; } },
+                set: v => { try { v ? localStorage.setItem('mtg.session', v) : localStorage.removeItem('mtg.session'); } catch {} } };
+let token = new URLSearchParams(location.search).get('s') || store.get();
+let session = null, waitTimer = null;
+
+let current = 'signin';
+function view(v) {
+  current = v;
+  ['signin', 'wait', 'app'].forEach(x => $('v-' + x).classList.toggle('hidden', x !== v));
+  $('tabs').classList.toggle('hidden', v !== 'app');
+  $('endbtn').classList.toggle('hidden', v !== 'app');
+}
+function ended(msg) {
+  store.set(null); token = null; session = null; clearTimeout(waitTimer); stopCam();
+  $('who').textContent = ''; view('signin');
+  $('bye').textContent = msg; $('bye').classList.remove('hidden');
+}
+
+async function boot() {
+  if (!token) return view('signin');
+  try { route(await MTG.api('/api/session/' + token)); }
+  catch { store.set(null); token = null; view('signin'); }
+}
+function route(s) {
+  session = s; token = s.sessionToken; store.set(token);
+  if (history.replaceState) history.replaceState(null, '', '/shop.html');
+  $('who').textContent = s.firstName ? 'Shopping as ' + s.firstName : '';
+  clearTimeout(waitTimer);
+  if (s.status === 'WAITING') { view('wait'); $('place').textContent = s.queuePosition; waitTimer = setTimeout(boot, 5000); return; }
+  if (s.status !== 'ACTIVE') {
+    ended(s.status === 'COMPLETED' ? 'Your visit is complete. Thanks for shopping with Epic Cure!'
+                                   : 'Your visit ended because this page was closed or left idle. Check in again to keep shopping.');
+    return;
+  }
+  $('bye').classList.add('hidden');
+  view('app'); tab('foryou'); refreshCart();
+}
+
+$('signin').addEventListener('submit', async e => {
+  e.preventDefault();
+  const d = $('code').value.replace(/\D/g, '');
+  if (d.length !== 4) { $('signin-err').textContent = 'Enter the four digits after CLI-.'; return; }
+  try { route(await MTG.api('/api/checkin', { method: 'POST', body: { clientCode: 'CLI-' + d } })); }
+  catch (x) { $('signin-err').textContent = x.message; }
+});
+
+// ---------- tabs ----------
+function tab(t) {
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.t === t)));
+  ['foryou', 'scan', 'cart', 'recipes'].forEach(x => $('t-' + x).classList.toggle('hidden', x !== t));
+  if (t !== 'scan') stopCam();
+  if (t === 'foryou') loadForYou();
+  if (t === 'cart') refreshCart();
+  window.scrollTo(0, 0);
+}
+$('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) tab(b.dataset.t); });
+
+function handle(x) {
+  if (x.code === 'SESSION_NOT_ACTIVE' || x.code === 'SESSION_NOT_FOUND') { MTG.toast(x.message); setTimeout(boot, 1200); }
+  else MTG.toast(x.message);
+}
+
+// ---------- for you ----------
+async function loadForYou() {
+  const el = $('t-foryou');
+  el.innerHTML = '<p class="muted"><span class="spinner"></span> Finding good picks on the shelves…</p>';
+  try {
+    const r = await MTG.api(`/api/session/${token}/recommendations`);
+    const t = r.targets;
+    el.innerHTML = `<div class="hello"><h1>Good picks for you today</h1>
+      <div class="goal"><span><b>${MTG.lb(t.produceLb)}</b> produce</span><span><b>${MTG.lb(t.proteinLb)}</b> protein</span>
+      <span><b>${MTG.lb(t.grainLb)}</b> grains</span><span><b>${Number(t.dairyUnits)}</b> dairy</span></div></div>` +
+      r.groups.map(g => `<div class="cat"><h2>${MTG.esc(MTG.prettyCategory(g.category))}</h2><ul class="list">` +
+        g.items.map(i => `<li>${MTG.sticker(i.flag, { mini: true })}
+          <div class="grow"><div class="name">${MTG.esc(i.name)}</div><div class="small muted">${MTG.esc(i.servingDesc || '')}</div></div>
+          ${MTG.tag(i.location)}
+          <button class="btn small ghost" data-add="${MTG.esc(i.barcode || i.sku)}" aria-label="Add ${MTG.esc(i.name)} to cart">Add</button></li>`).join('') +
+        '</ul></div>').join('');
+  } catch (x) { el.innerHTML = `<p class="empty">${MTG.esc(x.message)}</p>`; handle(x); }
+}
+$('t-foryou').addEventListener('click', async e => {
+  const b = e.target.closest('[data-add]'); if (!b) return;
+  b.disabled = true;
+  try { const r = await MTG.api(`/api/session/${token}/scan`, { method: 'POST', body: { code: b.dataset.add } });
+        MTG.toast(r.addedToCart ? `Added ${r.item.name}` : r.message); setCount(r.cart); }
+  catch (x) { handle(x); } finally { b.disabled = false; }
+});
+
+// ---------- scan ----------
+const examples = [['071234567801', 'Fresh spinach'], ['071234567877', 'Chicken breast'], ['071234567855', 'Raw almonds'],
+                  ['071234567888', 'Cottage cheese'], ['071234567823', 'Bananas'], ['071234567826', 'Black beans, low sodium']];
+$('examples').innerHTML = examples.map(([c, n]) => `<span>${n}</span><button type="button" data-ex="${c}">${c}</button>`).join('');
+$('examples').addEventListener('click', e => { const c = e.target.dataset.ex; if (c) scan(c); });
+$('manual').addEventListener('submit', e => { e.preventDefault(); const c = $('manualcode').value.trim(); if (c) scan(c); });
+
+async function scan(code) {
+  code = /^0\d{12}$/.test(code) ? code.slice(1) : code;           // EAN-13 readers add a leading 0 to UPC-A
+  $('result').innerHTML = '<p class="muted" style="padding:20px 0"><span class="spinner"></span> Checking…</p>';
+  try {
+    const r = await MTG.api(`/api/session/${token}/scan`, { method: 'POST', body: { code } });
+    const i = r.item;
+    $('result').innerHTML = `<div class="result">${MTG.sticker(i.flag, { pop: true, cap: r.yellowCap })}
+        <div><h2>${MTG.esc(i.name)}</h2><div class="small muted">${MTG.esc(i.servingDesc || '')}</div></div></div>
+        <p class="msg">${MTG.esc(r.message)}</p>
+      ${i.reasons.length ? `<ul class="reasons">${i.reasons.map(x => '<li>' + MTG.esc(x) + '</li>').join('')}</ul>` : ''}
+      <p style="margin-top:14px">${i.location ? 'Found at ' + MTG.tag(i.location) : ''}</p>
+      ${i.flag === 'RED' && r.addedToCart ? `<button class="btn danger block" data-del="${i.productId}">I put it back</button>` : ''}
+      ${r.addedToCart && i.flag !== 'RED' ? `<p class="small muted">Added to your cart (${r.cartQuantity}).</p>` : ''}`;
+    setCount(r.cart);
+    $('manualcode').value = '';
+  } catch (x) { $('result').innerHTML = `<div class="ribbon warn" style="margin-top:18px">${MTG.esc(x.message)}</div>`; if (x.status !== 404) handle(x); }
+}
+$('result').addEventListener('click', async e => {
+  const id = e.target.dataset.del; if (!id) return;
+  try { setCount(await MTG.api(`/api/session/${token}/cart/${id}`, { method: 'DELETE' })); $('result').innerHTML = '<div class="ribbon ok" style="margin-top:18px">Thanks. It\'s out of your cart.</div>'; }
+  catch (x) { handle(x); }
+});
+
+let stream = null, detector = null, scanning = false;
+if (!('BarcodeDetector' in window)) $('startcam').classList.add('hidden');
+$('startcam').onclick = async () => {
+  try {
+    detector = detector || new BarcodeDetector({ formats: ['upc_a', 'ean_13', 'ean_8', 'upc_e', 'code_128', 'qr_code'] });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    $('video').srcObject = stream; await $('video').play();
+    $('cam').classList.remove('hidden'); $('startcam').classList.add('hidden'); scanning = true; loop();
+  } catch { MTG.toast('Camera not available. Type the barcode number instead.'); }
+};
+async function loop() {
+  if (!scanning) return;
+  try { const codes = await detector.detect($('video')); if (codes.length) { stopCam(); scan(codes[0].rawValue); return; } } catch {}
+  setTimeout(loop, 250);
+}
+function stopCam() { scanning = false; if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; $('cam').classList.add('hidden'); if ('BarcodeDetector' in window) $('startcam').classList.remove('hidden'); }
+$('stopcam').onclick = stopCam;
+
+// ---------- cart ----------
+let cartQty = {};      // productId -> quantity, used by the recipes page
+let capOf = {};        // productId -> yellow cap (only for Capped items)
+function stepper(id, qty, cap) {
+  const atCap = cap != null && qty >= cap;
+  return `<div class="stepper"><button type="button" data-dec="${id}" aria-label="One less">−</button>
+    <span class="qty" aria-live="polite">${qty}</span>
+    <button type="button" data-inc="${id}" aria-label="One more" ${atCap ? 'disabled title="Household limit reached"' : ''}>+</button></div>`;
+}
+async function changeQty(id, delta) {
+  try {
+    if (delta > 0) {
+      const r = await MTG.api(`/api/session/${token}/cart/${id}`, { method: 'POST' });
+      if (r.capReached) MTG.toast(r.message);
+      else if (r.item.flag === 'RED') MTG.toast(r.message);
+      setCount(r.cart); syncCart(r.cart);
+    } else {
+      const c = await MTG.api(`/api/session/${token}/cart/${id}?quantity=1`, { method: 'DELETE' });
+      setCount(c); syncCart(c);
+    }
+  } catch (x) { handle(x); }
+}
+function syncCart(c) {
+  cartQty = {}; capOf = {};
+  c.lines.forEach(l => { cartQty[l.item.productId] = l.quantity; if (l.yellowCap != null) capOf[l.item.productId] = l.yellowCap; });
+  if (!$('t-cart').classList.contains('hidden')) renderCart(c);
+  if (!$('t-recipes').classList.contains('hidden') && lastRecipes) renderRecipes(lastRecipes);
+}
+function setCount(cart) { const c = $('cartcount'); c.textContent = cart.totalUnits; c.classList.toggle('hidden', !cart.totalUnits); c.classList.toggle('neutral', !cart.redCount); }
+async function refreshCart() {
+  try { const c = await MTG.api(`/api/session/${token}/cart`); setCount(c); syncCart(c); renderCart(c); } catch (x) { handle(x); }
+}
+function renderCart(c) {
+  if ($('t-cart').classList.contains('hidden')) return;
+  $('t-cart').innerHTML = `<h1>Your cart</h1>` + (c.lines.length === 0
+    ? `<p class="empty">Your cart is empty. Scan items as you pick them up, or add good picks from the For you tab.</p>`
+    : (c.redCount ? `<div class="ribbon stop">${c.redCount === 1 ? 'One item doesn\'t fit' : c.redCount + ' items don\'t fit'} your health plan. Please put ${c.redCount === 1 ? 'it' : 'them'} back.</div>` : '') +
+      `<ul class="list">` + c.lines.map(l => {
+        const red = l.item.flag === 'RED', id = l.item.productId;
+        const note = l.item.flag === 'YELLOW' ? `Limit ${l.yellowCap} for your household` : red ? MTG.esc(l.item.reasons[0] || '') : MTG.esc(l.item.servingDesc || '');
+        return `<li class="${red ? 'redline' : ''}">${MTG.sticker(l.item.flag, { mini: true })}
+          <div class="grow"><div class="name">${MTG.esc(l.item.name)}</div><div class="small muted">${note}</div></div>
+          ${red ? `<span class="qty">${l.quantity}</span><button class="btn small danger" data-putback="${id}">Put back</button>`
+                : stepper(id, l.quantity, l.yellowCap)}</li>`;
+      }).join('') +
+      `</ul><p class="muted" style="margin-top:14px">${c.totalUnits} items · about ${MTG.lb(c.totalWeightLb)}</p>
+      <button class="btn block" onclick="tab('recipes')">See recipes for this cart</button>`);
+}
+$('t-cart').addEventListener('click', async e => {
+  const inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]'), pb = e.target.closest('[data-putback]');
+  if (inc) return changeQty(inc.dataset.inc, +1);
+  if (dec) return changeQty(dec.dataset.dec, -1);
+  if (pb) {
+    try { const c = await MTG.api(`/api/session/${token}/cart/${pb.dataset.putback}`, { method: 'DELETE' }); setCount(c); syncCart(c); MTG.toast('Thanks. It\'s out of your cart.'); }
+    catch (x) { handle(x); }
+  }
+});
+
+// ---------- recipes ----------
+let lastRecipes = null;
+$('getrecipes').onclick = async () => {
+  const btn = $('getrecipes'); btn.disabled = true;
+  $('recipes').innerHTML = '<p class="muted" style="padding:16px 0"><span class="spinner"></span> Putting meal ideas together…</p>';
+  try {
+    const [r, c] = await Promise.all([MTG.api(`/api/session/${token}/recipes`), MTG.api(`/api/session/${token}/cart`)]);
+    lastRecipes = r; setCount(c); syncCart(c); renderRecipes(r);
+  } catch (x) { $('recipes').innerHTML = ''; handle(x); }
+  finally { btn.disabled = false; btn.textContent = 'Suggest new recipes'; }
+};
+function renderRecipes(r) {
+  const src = r.source === 'AI' ? `Suggested by an open-source AI model, then checked against your plan and what's in stock.`
+                                : `Standard recipes for your plan.${r.note ? ' ' + MTG.esc(r.note) : ''}`;
+  $('recipes').innerHTML = `<p class="source" style="margin-top:16px">${src}</p>` + (r.recipes.length ? r.recipes.map(x => {
+      const missing = x.ingredients.filter(i => !cartQty[i.productId]).length;
+      return `<article class="recipe"><h2>${MTG.esc(x.title)}</h2>
+        ${x.whyItFits ? `<p class="muted">${MTG.esc(x.whyItFits)}</p>` : ''}
+        <p class="small ${missing ? 'muted' : ''}" style="${missing ? '' : 'color:var(--leaf);font-weight:700'}">${missing ? `You need ${missing} more item${missing > 1 ? 's' : ''}` : 'You have everything for this one'}</p>
+        ${x.ingredients.map(i => {
+          const q = cartQty[i.productId] || 0;
+          return `<div class="ing"><span class="grow">${MTG.esc(i.name)}${q ? '' : `<br>${MTG.tag(i.location)}`}</span>
+            ${q ? stepper(i.productId, q, capOf[i.productId]) : `<button class="btn small" data-addid="${i.productId}">Add</button>`}</div>`;
+        }).join('')}
+        <ol>${x.steps.map(s => '<li>' + MTG.esc(s) + '</li>').join('')}</ol></article>`;
+    }).join('')
+    : `<p class="empty">Add a few items to your cart first, and we'll suggest meals you can make with them.</p>`);
+}
+$('recipes').addEventListener('click', e => {
+  const inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]'), add = e.target.closest('[data-addid]');
+  if (inc) changeQty(inc.dataset.inc, +1);
+  else if (dec) changeQty(dec.dataset.dec, -1);
+  else if (add) { add.disabled = true; changeQty(add.dataset.addid, +1).then(() => MTG.toast('Added to your cart')); }
+});
+
+// ---------- end visit ----------
+let leaving = false;
+$('endbtn').onclick = async () => {
+  let units = 0;
+  try { const c = await MTG.api(`/api/session/${token}/cart`); units = c.totalUnits; } catch {}
+  $('leave-body').innerHTML = units
+    ? `<p>You have <b>${units} item${units > 1 ? 's' : ''}</b> in your cart. Please put ${units > 1 ? 'them' : 'it'} back on the shelf before you go. To take food home, go to the checkout instead.</p>`
+    : `<p>You haven't picked anything yet. Ending your visit frees up your spot for the next person.</p>`;
+  $('leave-ok').textContent = units ? 'I put everything back, end visit' : 'End visit';
+  $('leave').showModal();
+};
+$('leave-cancel').onclick = () => $('leave').close();
+async function leaveNow(msg) {
+  leaving = true;
+  try { await MTG.api(`/api/session/${token}/leave`, { method: 'POST' }); ended(msg); }
+  catch (x) { leaving = false; handle(x); }
+}
+$('leave-ok').onclick = () => { $('leave').close(); leaveNow('Your visit has ended. Thanks for coming by!'); };
+$('leaveline').onclick = () => leaveNow('You left the line. You can check in again any time.');
+
+// heartbeat: keeps a reload/second tab from ending the visit, and notices a checkout done by a volunteer
+setInterval(async () => {
+  if (!token || current !== 'app' || document.visibilityState !== 'visible') return;
+  try { const s = await MTG.api('/api/session/' + token); if (s.status !== 'ACTIVE') route(s); } catch {}
+}, 10000);
+
+// closing the tab or navigating away ends the visit (after a short grace period, so a reload doesn't)
+window.addEventListener('pagehide', () => {
+  if (token && !leaving && (current === 'app' || current === 'wait') && navigator.sendBeacon) {
+    navigator.sendBeacon(`/api/session/${token}/away`);
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
