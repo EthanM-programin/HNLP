@@ -2,7 +2,7 @@
 
 **Team HopefullyNotLastPlacers** · 2026 UNF NestforAwhile AI-Augmented Software Engineering Challenge
 
-**Live demo:** TODO: https://epiccure-mtg.onrender.com
+**Live demo:** TODO: https://HNLP.onrender.com
 **Repository:** https://github.com/EthanM-programin/HNLP
 
 ---
