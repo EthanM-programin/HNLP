@@ -8,7 +8,7 @@
 |---|---|---|
 | **Gemini** | Ethan (also the first seed SQL draft) | Architecture stress-testing ("GrillMe"), repo/role coordination, schema & rules verification, security hygiene, README |
 | **Claude (web)** | Aleksander, with Ethan reviewing the outputs | Planning, design-doc review, schema & entities, backend and frontend code generation, debugging help, docs |
-| **GitHub Copilot** | TODO: who / where | Inline edits and debugging |
+| **GitHub Copilot** | TODO: Ethan | Inline edits and debugging |
 | **Groq `openai/gpt-oss-20b`** | Runtime | Recipe synthesis inside the app |
 
 **Ownership:** Ethan owned the **backend, database and AI integration** (design, verification, testing, debugging, the Groq integration). Aleksander owned the **frontend, kiosk/scanner flows, security and deployment**. Code for both tracks was generated through the Claude web conversation; Ethan cross-checked the backend with Gemini and ran, tested and fixed it on his own machine. Tool tags match our commit messages: `[Claude web]`, `[Gemini]`, `[Copilot]`, `[Manual]`.
